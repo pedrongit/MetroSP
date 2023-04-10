@@ -4,14 +4,28 @@ import cv2
 import numpy as np
 from openvino.runtime import Core
 
-#OpenVino
-precision="FP16"
-#precision="FP16-INT8"
-#precision="FP32"
 
-#PATH MODELO 0013
-model_path = f"models/person-detection-retail-0013/{precision}/person-detection-retail-0013.xml"
-model_weights_path = f"models/person-detection-retail-0013/{precision}/person-detection-retail-0013.bin"
+
+
+#PRECISAO
+#precisao = "FP16"
+precisao = "FP16-INT8"
+#precisao = "FP32
+
+#MODELO
+#modelo = "person-detection-0200"
+#modelo = "person-detection-0201"
+#modelo = "person-detection-0202"
+modelo = "person-detection-0203"
+#modelo = "person-detection-retail-0013"
+
+
+model_path = f"models/person-detection-0200/FP16-INT8/person-detection-0200.xml"           
+model_weights_path = f"models/person-detection-0200/FP16-INT8/person-detection-0200.bin"
+
+print("Model XML path:", model_path)
+print("Model BIN path:", model_weights_path)
+
 
 ie_core = Core()
 model = ie_core.read_model(model=model_path, weights=model_weights_path)
@@ -47,15 +61,21 @@ def process_boxes(frame, results, thresh=0.6):
 
 #DESENHO DAS CAIXAS
 def draw_boxes_frame(frame, boxes):
-    colors = {"red": (0, 0, 255), "green": (0, 255, 0)}
+    colors = {"red": (0, 0, 255), "green": (0, 255, 0), "white": (255, 255, 255)}
     for score, box in boxes:
         
         x2 = box[0] + box[2]
         y2 = box[1] + box[3]
         cv2.rectangle(img=frame, pt1=box[:2], pt2=(x2, y2), color=colors["red"], thickness=1)
         
+        centroid_x = box[0] + box[2] // 2
+        centroid_y = box[1] + box[3] // 2
         
-        #cv2.circle(img=frame,center=(xc,yc),radius=0,color=colors["red"],thickness=1)
+        # Draw the centroid
+        cv2.circle(img=frame, center=(centroid_x, centroid_y), radius=2, color=colors["white"], thickness=-1)
+
+        
+
         perc=score*100
         cv2.putText(
             img=frame,
@@ -69,27 +89,53 @@ def draw_boxes_frame(frame, boxes):
         )
     return frame
 
+#DESENHO DA ZONA
+def draw_zone(frame, pontos, boxes, opacidade=0.5):
+    # Converter pontos para um array numpy
+    pontos = np.array(pontos, dtype=np.int32)
+
+    # Contar o número de centróides dentro da zona
+    centroids_inside = 0
+    for _, box in boxes:
+        centroid_x = box[0] + box[2] // 2
+        centroid_y = box[1] + box[3] // 2
+
+        if cv2.pointPolygonTest(pontos, (centroid_x, centroid_y), False) >= 0:
+            centroids_inside += 1
+
+    # Escolher a cor com base no número de centróides dentro da zona
+    cor = (0, 0, 255) if centroids_inside >= 2 else (0, 255, 0)  # Vermelho se dois ou mais centróides, caso contrário verde
+    espessura = 2  # Espessura da borda do polígono
+
+    # Criar uma cópia do frame para desenhar o polígono preenchido
+    filled_frame = frame.copy()
+    cv2.fillPoly(filled_frame, [pontos], cor)
+
+    # Misturar o frame original com o polígono preenchido
+    cv2.addWeighted(filled_frame, opacidade, frame, 1 - opacidade, 0, frame)
+
+    # Desenhar a borda do polígono no frame mesclado
+    cv2.polylines(frame, [pontos], True, cor, espessura)
+
 #MAIN  
 def main(source):
     size = (width, height)
     vs = cv2.VideoCapture(source)
-    #vw = cv2.VideoWriter('video1.avi', 
-                       #  cv2.VideoWriter_fourcc(*'MJPG'),
-                        # 10, size)
+    
     
     while True:
         _,frame = vs.read()
-        
-        #Cria a janela
         cv2.namedWindow(winname="ESC pra Sair", flags=cv2.WINDOW_GUI_NORMAL | cv2.WINDOW_AUTOSIZE)
-        
-        #Video acabou
         if frame is None:
             break
 
         #Adapta imagem pra rede     
-        resized_image = cv2.resize(frame, (width, height))
+        resized_image = cv2.resize(frame, (width, height), interpolation=cv2.INTER_LINEAR)
+        print(f"Resized shape:{resized_image.shape}")
         data = np.expand_dims(resized_image.transpose(2, 0, 1), 0)
+        print(f"data shape:{data.shape}")
+
+
     
         
         t_inicial= time.time()
@@ -98,6 +144,8 @@ def main(source):
         results = compiled_model([data])[output_layer]
         boxes = process_boxes(frame=frame, results=results)
         frame = draw_boxes_frame(frame=frame, boxes=boxes)
+        zone_points = [(250, 200), (350, 200), (400, 350), (300,350 )]  # Exemplo de coordenadas da zona (um quadrilátero) a->b->c->d
+        draw_zone(frame, zone_points, boxes, opacidade=0.5)  # Defina a opacidade desejada (0.5 neste exemplo)
 
         t_final = time.time()
         t=[]
@@ -115,7 +163,7 @@ def main(source):
                 lineType=cv2.LINE_AA,
             )
         cv2.imshow(winname="ESC pra Sair", mat=frame)
-        #vw.write(frame)
+        
         key = cv2.waitKey(1)
         if key == 27:
             break
@@ -123,10 +171,7 @@ def main(source):
     
     cv2.destroyAllWindows()
 
-#VIDEO OU WEBCAM
-source=0
+if __name__ == "__main__":
+    video = "data/video.avi"
 
-source="data/video.avi"
-#source="data/video_r.avi"
-#source="data/video2.avi"
-main(source)
+    main(video)
