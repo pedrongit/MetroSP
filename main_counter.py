@@ -144,7 +144,7 @@ def main(source):
         results = compiled_model([data])[output_layer]
         boxes = process_boxes(frame=frame, results=results)
         frame = draw_boxes_frame(frame=frame, boxes=boxes)
-        zone_points = [(250, 200), (350, 200), (400, 350), (300,350 )]  # Exemplo de coordenadas da zona (um quadrilátero) a->b->c->d
+        zone_points = [(250, 300), (350, 300), (400, 350), (300,350 )]  # Exemplo de coordenadas da zona (um quadrilátero) a->b->c->d
         draw_zone(frame, zone_points, boxes, opacidade=0.5)  # Defina a opacidade desejada (0.5 neste exemplo)
 
         t_final = time.time()
@@ -172,6 +172,6 @@ def main(source):
     cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    video = "data/video.avi"
+    video = 0
 
     main(video)
