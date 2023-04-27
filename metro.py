@@ -3,6 +3,9 @@ import cv2
 import numpy as np
 from openvino.runtime import Core
 
+
+
+
 # Escolha a precisão do modelo
 #precisao = "FP16"
 precisao = "FP16-INT8"
@@ -60,7 +63,7 @@ def draw_boxes_frame(frame, boxes):
     for score, box in boxes:
         x2 = box[0] + box[2]
         y2 = box[1] + box[3]
-        cv2.rectangle(img=frame, pt1=box[:2], pt2=(x2, y2), color=colors["red"], thickness=1)
+        cv2.rectangle(img=frame, pt1=box[:2], pt2=(x2, y2), color=colors["red"], thickness=5)
 
         centroid_x = box[0] + box[2] // 2
         centroid_y = box[1] + box[3] // 2
@@ -77,7 +80,7 @@ def draw_boxes_frame(frame, boxes):
             fontFace=cv2.FONT_HERSHEY_COMPLEX,
             fontScale=frame.shape[1] / 3000,
             color=colors["green"],
-            thickness=1,
+            thickness=5,
             lineType=cv2.LINE_AA,
         )
     return frame
@@ -133,7 +136,7 @@ def main(source):
         results = compiled_model([data])[output_layer]
         boxes = process_boxes(frame=frame, results=results)
         frame = draw_boxes_frame(frame=frame, boxes=boxes)
-        zone_points = [(250, 300), (350, 300), (400, 350), (300, 350)]  # Exemplo de coordenadas da zona (um quadrilátero) a->b->c->d
+        zone_points = [(100, 100), (800, 100), (800, 600), (100, 600)]  # Exemplo de coordenadas da zona (um quadrilátero) a->b->c->d
         draw_zone(frame, zone_points, boxes, opacidade=0.5)  # Defina a opacidade desejada (0.5 neste exemplo)
 
         t_final = time.time()
