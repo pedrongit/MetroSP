@@ -36,6 +36,27 @@ output_layer = compiled_model.output(0)
 
 _,_,height, width = input_layer.shape
 
+def draw_dashed_line(frame, pt1, pt2, color, thickness, dash_length):
+    dist = np.linalg.norm(np.array(pt1) - np.array(pt2))
+    num_dashes = int(dist / (2 * dash_length))
+    pts = np.linspace(pt1, pt2, num_dashes * 2, dtype=int)
+    for i in range(0, len(pts) - 1, 2):
+        cv2.line(frame, tuple(pts[i]), tuple(pts[i + 1]), color, thickness)
+
+
+def draw_dashed_grid(frame, pixel_scale, dash_length=5):
+    height, width, _ = frame.shape
+    color = (255, 255, 255)  # Cor das linhas da grade (branco)
+    thickness = 1  # Espessura das linhas da grade
+
+    # Desenhar linhas verticais pontilhadas
+    for x in range(0, width, pixel_scale):
+        draw_dashed_line(frame, (x, 0), (x, height), color, thickness, dash_length)
+
+    # Desenhar linhas horizontais pontilhadas
+    for y in range(0, height, pixel_scale):
+        draw_dashed_line(frame, (0, y), (width, y), color, thickness, dash_length)
+
 
 #PROCESSAMENTO DO RESULTADO DO MODELO 
 def process_boxes(frame, results, thresh=0.6):
@@ -125,6 +146,10 @@ def main(source):
     
     while True:
         _,frame = vs.read()
+        
+        pixel_scale = 50  # Espaçamento entre as linhas da grade em pixels
+        draw_dashed_grid(frame, pixel_scale)
+
         cv2.namedWindow(winname="ESC pra Sair", flags=cv2.WINDOW_GUI_NORMAL | cv2.WINDOW_AUTOSIZE)
         if frame is None:
             break
