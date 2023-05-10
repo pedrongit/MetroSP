@@ -146,8 +146,8 @@ def main(source):
     
     while True:
         _,frame = vs.read()
-        
-        pixel_scale = 50  # Espaçamento entre as linhas da grade em pixels
+
+        pixel_scale = 50  # Espaçamento entre as linhas da grade em pixels TESTE GIT
         draw_dashed_grid(frame, pixel_scale)
 
         cv2.namedWindow(winname="ESC pra Sair", flags=cv2.WINDOW_GUI_NORMAL | cv2.WINDOW_AUTOSIZE)
