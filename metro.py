@@ -3,10 +3,11 @@ import time
 import cv2
 import numpy as np
 from openvino.runtime import Core
+import serial
 
+arduino = serial.Serial('/dev/cu.usbmodem14301', 9600) 
 
-
-
+arduino.write(b'1')
 #PRECISAO
 #precisao = "FP16"
 precisao = "FP16-INT8"
@@ -123,11 +124,17 @@ def draw_zone(frame, pontos, boxes, opacidade=0.5):
 
         if cv2.pointPolygonTest(pontos, (centroid_x, centroid_y), False) >= 0:
             centroids_inside += 1
-
+    cor=(0,0,255)
     # Escolher a cor com base no número de centróides dentro da zona
-    cor = (0, 0, 255) if centroids_inside >= 2 else (0, 255, 0)  # Vermelho se dois ou mais centróides, caso contrário verde
-    espessura = 2  # Espessura da borda do polígono
+    if centroids_inside >= 2:
+        cor = (0, 0, 255) 
+        arduino.write(b'1')
+    else:
+        arduino.write(b'0')
+        
+        cor=(0, 255, 0)  # Vermelho se dois ou mais centróides, caso contrário verde
 
+    espessura = 2  # Espessura da borda do polígono
     # Criar uma cópia do frame para desenhar o polígono preenchido
     filled_frame = frame.copy()
     cv2.fillPoly(filled_frame, [pontos], cor)
@@ -146,30 +153,28 @@ def main(source):
     
     while True:
         _,frame = vs.read()
-
-        pixel_scale = 50  # Espaçamento entre as linhas da grade em pixels TESTE GIT
+        pixel_scale = 50  # Espaçamento entre as linhas da grade em pixels
         draw_dashed_grid(frame, pixel_scale)
-
         cv2.namedWindow(winname="ESC pra Sair", flags=cv2.WINDOW_GUI_NORMAL | cv2.WINDOW_AUTOSIZE)
         if frame is None:
             break
 
         #Adapta imagem pra rede     
         resized_image = cv2.resize(frame, (width, height), interpolation=cv2.INTER_LINEAR)
-        print(f"Resized shape:{resized_image.shape}")
+        #print(f"Resized shape:{resized_image.shape}")
         data = np.expand_dims(resized_image.transpose(2, 0, 1), 0)
-        print(f"data shape:{data.shape}")
+        #print(f"data shape:{data.shape}")
 
 
-    
         
+       
         t_inicial= time.time()
         
         #
         results = compiled_model([data])[output_layer]
         boxes = process_boxes(frame=frame, results=results)
         frame = draw_boxes_frame(frame=frame, boxes=boxes)
-        zone_points = [(250, 300), (350, 300), (400, 350), (300,350 )]  # Exemplo de coordenadas da zona (um quadrilátero) a->b->c->d
+        zone_points = [(0, 0), (1000, 0), (1000, 1000), (0,1000 )]  # Exemplo de coordenadas da zona (um quadrilátero) a->b->c->d
         draw_zone(frame, zone_points, boxes, opacidade=0.5)  # Defina a opacidade desejada (0.5 neste exemplo)
 
         t_final = time.time()
