@@ -5,9 +5,9 @@ import numpy as np
 from openvino.runtime import Core
 import serial
 
-arduino = serial.Serial('/dev/cu.usbmodem14301', 9600) 
+#arduino = serial.Serial('/dev/cu.usbmodem14301', 9600) 
 
-arduino.write(b'1')
+#arduino.write(b'1')
 #PRECISAO
 #precisao = "FP16"
 precisao = "FP16-INT8"
@@ -36,6 +36,39 @@ input_layer = compiled_model.input(0)
 output_layer = compiled_model.output(0)
 
 _,_,height, width = input_layer.shape
+
+points = []
+cropping = False
+
+def click_and_crop(event, x, y, flags, param):
+    # Refere-se às variáveis globais
+    global points, cropping
+
+    # Se o botão esquerdo do mouse foi clicado, registre o ponto inicial
+    # e indique que estamos recortando
+    if event == cv2.EVENT_LBUTTONDOWN:
+        points = [(x, y)]
+        cropping = True
+        print(f"Starting point registered at: {points[0]}")  # Debug line
+
+    # Verifique se o botão esquerdo do mouse foi movido
+    elif event == cv2.EVENT_MOUSEMOVE:
+        if cropping:
+            points.append((x, y))
+            print(f"Point registered at: {x, y}")  # Debug line
+
+    # Verifique se o botão esquerdo do mouse foi liberado
+    elif event == cv2.EVENT_LBUTTONUP:
+        # Registra o ponto final
+        points.append((x, y))
+        cropping = False 
+        print(f"Ending point registered at: {points[-1]}")  # Debug line
+
+def draw_polygon(frame, points):
+    if len(points) > 0:
+        # Desenha um polígono na imagem
+        cv2.polylines(frame, [np.array(points)], True, (0, 255, 0), thickness=2)
+    return frame
 
 def draw_dashed_line(frame, pt1, pt2, color, thickness, dash_length):
     dist = np.linalg.norm(np.array(pt1) - np.array(pt2))
@@ -128,9 +161,9 @@ def draw_zone(frame, pontos, boxes, opacidade=0.5):
     # Escolher a cor com base no número de centróides dentro da zona
     if centroids_inside >= 2:
         cor = (0, 0, 255) 
-        arduino.write(b'1')
+        #arduino.write(b'1')
     else:
-        arduino.write(b'0')
+        #arduino.write(b'0')
         
         cor=(0, 255, 0)  # Vermelho se dois ou mais centróides, caso contrário verde
 
@@ -147,15 +180,36 @@ def draw_zone(frame, pontos, boxes, opacidade=0.5):
 
 #MAIN  
 def main(source):
+    global points
     size = (width, height)
     vs = cv2.VideoCapture(source)
     
+    cv2.namedWindow("ESC pra Sair")
+    cv2.setMouseCallback("ESC pra Sair", click_and_crop)
     
+    _, frame = vs.read()
+
+    while True:
+        temp = frame.copy()
+        draw_dashed_grid(frame,pixel_scale=50)
+        draw_polygon(temp, points)
+        cv2.imshow("ESC pra Sair", temp)
+        key = cv2.waitKey(1) & 0xFF
+
+        # Se a tecla 'r' for pressionada, reinicia a zona de desenho
+        if key == ord("r"):
+            points = []
+
+        # Se a tecla 'c' for pressionada, sai do modo de desenho
+        elif key == ord("c"):
+            break
+    print (points)
     while True:
         _,frame = vs.read()
         pixel_scale = 50  # Espaçamento entre as linhas da grade em pixels
-        draw_dashed_grid(frame, pixel_scale)
-        cv2.namedWindow(winname="ESC pra Sair", flags=cv2.WINDOW_GUI_NORMAL | cv2.WINDOW_AUTOSIZE)
+        draw_dashed_grid(frame,pixel_scale=50)
+        frame = draw_polygon(frame, points)
+
         if frame is None:
             break
 
@@ -174,8 +228,9 @@ def main(source):
         results = compiled_model([data])[output_layer]
         boxes = process_boxes(frame=frame, results=results)
         frame = draw_boxes_frame(frame=frame, boxes=boxes)
-        zone_points = [(0, 0), (1000, 0), (1000, 1000), (0,1000 )]  # Exemplo de coordenadas da zona (um quadrilátero) a->b->c->d
-        draw_zone(frame, zone_points, boxes, opacidade=0.5)  # Defina a opacidade desejada (0.5 neste exemplo)
+
+        #zone_points = [(0, 0), (1000, 0), (1000, 1000), (0,1000 )]  # Exemplo de coordenadas da zona (um quadrilátero) a->b->c->d
+        draw_zone(frame, points, boxes, opacidade=0.5)  # Defina a opacidade desejada (0.5 neste exemplo)
 
         t_final = time.time()
         t=[]
@@ -192,6 +247,7 @@ def main(source):
                 thickness=1,
                 lineType=cv2.LINE_AA,
             )
+        
         cv2.imshow(winname="ESC pra Sair", mat=frame)
         
         key = cv2.waitKey(1)
