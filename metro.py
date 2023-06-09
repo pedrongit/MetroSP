@@ -17,12 +17,12 @@ precisao = "FP16-INT8"
 #modelo = "person-detection-0200"
 #modelo = "person-detection-0201"
 #modelo = "person-detection-0202"
-modelo = "person-detection-0203"
+#modelo = "person-detection-0203"
 #modelo = "person-detection-retail-0013"
 
 
-model_path = f"models/person-detection-0200/FP16-INT8/person-detection-0200.xml"           
-model_weights_path = f"models/person-detection-0200/FP16-INT8/person-detection-0200.bin"
+model_path = f"models/person-detection-0202/FP16-INT8/person-detection-0202.xml"           
+model_weights_path = f"models/person-detection-0202/FP16-INT8/person-detection-0202.bin"
 
 print("Model XML path:", model_path)
 print("Model BIN path:", model_weights_path)
@@ -41,34 +41,25 @@ points = []
 cropping = False
 
 def click_and_crop(event, x, y, flags, param):
-    # Refere-se às variáveis globais
+    # Refer to the global variables
     global points, cropping
-
-    # Se o botão esquerdo do mouse foi clicado, registre o ponto inicial
-    # e indique que estamos recortando
+    # If the left mouse button was clicked, record the starting point
+    # and indicate that cropping is being performed
     if event == cv2.EVENT_LBUTTONDOWN:
-        points = [(x, y)]
-        cropping = True
-        print(f"Starting point registered at: {points[0]}")  # Debug line
+        if len(points) < 4:  # Only add a point if less than four are present
+            points.append([x, y])
+            cropping = True
+            print(f"Point {len(points)}: {points[-1]}")  # Debug line
+        else:
+            print("Four points already selected. Press 'r' to reset points if needed.")
 
-    # Verifique se o botão esquerdo do mouse foi movido
-    elif event == cv2.EVENT_MOUSEMOVE:
-        if cropping:
-            points.append((x, y))
-            print(f"Point registered at: {x, y}")  # Debug line
-
-    # Verifique se o botão esquerdo do mouse foi liberado
-    elif event == cv2.EVENT_LBUTTONUP:
-        # Registra o ponto final
-        points.append((x, y))
-        cropping = False 
-        print(f"Ending point registered at: {points[-1]}")  # Debug line
 
 def draw_polygon(frame, points):
-    if len(points) > 0:
-        # Desenha um polígono na imagem
+    if len(points) == 4:  # Only draw the polygon if we have exactly four points
+        # Draw a polygon on the image
         cv2.polylines(frame, [np.array(points)], True, (0, 255, 0), thickness=2)
     return frame
+
 
 def draw_dashed_line(frame, pt1, pt2, color, thickness, dash_length):
     dist = np.linalg.norm(np.array(pt1) - np.array(pt2))
@@ -145,38 +136,40 @@ def draw_boxes_frame(frame, boxes):
     return frame
 
 #DESENHO DA ZONA
-def draw_zone(frame, pontos, boxes, opacidade=0.5):
-    # Converter pontos para um array numpy
-    pontos = np.array(pontos, dtype=np.int32)
+def draw_zone(frame, points, boxes, opacidade=0.5):
+    # Convert points to a numpy array
+    points = np.array(points, dtype=np.int32)
 
-    # Contar o número de centróides dentro da zona
+    # Count the number of centroids inside the zone
     centroids_inside = 0
     for _, box in boxes:
         centroid_x = box[0] + box[2] // 2
         centroid_y = box[1] + box[3] // 2
 
-        if cv2.pointPolygonTest(pontos, (centroid_x, centroid_y), False) >= 0:
+        if cv2.pointPolygonTest(points, (centroid_x, centroid_y), False) >= 0:
             centroids_inside += 1
-    cor=(0,0,255)
-    # Escolher a cor com base no número de centróides dentro da zona
+
+    color = (0, 255, 0)  # Green if two or more centroids, else red
+
+    # Choose the color based on the number of centroids inside the zone
     if centroids_inside >= 2:
-        cor = (0, 0, 255) 
-        #arduino.write(b'1')
-    else:
-        #arduino.write(b'0')
-        
-        cor=(0, 255, 0)  # Vermelho se dois ou mais centróides, caso contrário verde
+        color = (0, 0, 255) 
 
-    espessura = 2  # Espessura da borda do polígono
-    # Criar uma cópia do frame para desenhar o polígono preenchido
+    thickness = 2  # Thickness of the polygon border
+    # Create a copy of the frame to draw the filled polygon
     filled_frame = frame.copy()
-    cv2.fillPoly(filled_frame, [pontos], cor)
+    cv2.fillPoly(filled_frame, [points], color)
 
-    # Misturar o frame original com o polígono preenchido
+    # Blend the original frame with the filled polygon
     cv2.addWeighted(filled_frame, opacidade, frame, 1 - opacidade, 0, frame)
 
-    # Desenhar a borda do polígono no frame mesclado
-    cv2.polylines(frame, [pontos], True, cor, espessura)
+    # Draw the border of the polygon on the merged frame
+    cv2.polylines(frame, [points], True, color, thickness)
+
+    # Show zone information
+    cv2.putText(frame, f"Pessoas na zona: {centroids_inside}", (10, frame.shape[0] - 10), 
+                cv2.FONT_HERSHEY_SIMPLEX, 0.5, color, 2)
+
 
 #MAIN  
 def main(source):
