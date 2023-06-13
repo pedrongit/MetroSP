@@ -5,7 +5,7 @@ import numpy as np
 from openvino.runtime import Core
 import serial
 
-#arduino = serial.Serial('/dev/cu.usbmodem14301', 9600) 
+arduino = serial.Serial('COM4', 9600) 
 
 #arduino.write(b'1')
 #PRECISAO
@@ -21,8 +21,8 @@ precisao = "FP16-INT8"
 #modelo = "person-detection-retail-0013"
 
 
-model_path = f"models/person-detection-0202/FP16-INT8/person-detection-0202.xml"           
-model_weights_path = f"models/person-detection-0202/FP16-INT8/person-detection-0202.bin"
+model_path = f"models/person-detection-retail-0013/FP16-INT8/person-detection-retail-0013.xml"           
+model_weights_path = f"models/person-detection-retail-0013/FP16-INT8/person-detection-retail-0013.bin"
 
 print("Model XML path:", model_path)
 print("Model BIN path:", model_weights_path)
@@ -41,12 +41,10 @@ points = []
 cropping = False
 
 def click_and_crop(event, x, y, flags, param):
-    # Refer to the global variables
     global points, cropping
-    # If the left mouse button was clicked, record the starting point
-    # and indicate that cropping is being performed
+    #Se LeftButton for apertado salva o ponto na variavel global
     if event == cv2.EVENT_LBUTTONDOWN:
-        if len(points) < 4:  # Only add a point if less than four are present
+        if len(points) < 4:  
             points.append([x, y])
             cropping = True
             print(f"Point {len(points)}: {points[-1]}")  # Debug line
@@ -122,17 +120,17 @@ def draw_boxes_frame(frame, boxes):
 
         
 
-        perc=score*100
-        cv2.putText(
-            img=frame,
-            text=f"{perc:.2f}%",
-            org=(box[0] + 10, box[1] + 10),
-            fontFace=cv2.FONT_HERSHEY_COMPLEX,
-            fontScale=frame.shape[1] / 3000,
-            color=colors["green"],
-            thickness=1,
-            lineType=cv2.LINE_AA,
-        )
+        # perc=score*100
+        # cv2.putText(
+        #     img=frame,
+        #     text=f"{perc:.2f}%",
+        #     org=(box[0] + 10, box[1] + 10),
+        #     fontFace=cv2.FONT_HERSHEY_COMPLEX,
+        #     fontScale=frame.shape[1] / 3000,
+        #     color=colors["green"],
+        #     thickness=1,
+        #     lineType=cv2.LINE_AA,
+        # )
     return frame
 
 #DESENHO DA ZONA
@@ -153,7 +151,12 @@ def draw_zone(frame, points, boxes, opacidade=0.5):
 
     # Choose the color based on the number of centroids inside the zone
     if centroids_inside >= 2:
-        color = (0, 0, 255) 
+        color = (0, 0, 255)
+        arduino.write(b'1')
+        print('Status: porta TRANCADA')
+    else:
+        arduino.write(b'0')
+        print('Status: porta ABERTA') 
 
     thickness = 2  # Thickness of the polygon border
     # Create a copy of the frame to draw the filled polygon
@@ -175,8 +178,9 @@ def draw_zone(frame, points, boxes, opacidade=0.5):
 def main(source):
     global points
     size = (width, height)
-    vs = cv2.VideoCapture(source)
     
+    vs = cv2.VideoCapture(source)
+
     cv2.namedWindow("ESC pra Sair")
     cv2.setMouseCallback("ESC pra Sair", click_and_crop)
     
@@ -192,7 +196,7 @@ def main(source):
         # Se a tecla 'r' for pressionada, reinicia a zona de desenho
         if key == ord("r"):
             points = []
-
+            print(points)
         # Se a tecla 'c' for pressionada, sai do modo de desenho
         elif key == ord("c"):
             break
@@ -200,7 +204,7 @@ def main(source):
     while True:
         _,frame = vs.read()
         pixel_scale = 50  # Espaçamento entre as linhas da grade em pixels
-        draw_dashed_grid(frame,pixel_scale=50)
+        draw_dashed_grid(frame,pixel_scale=pixel_scale)
         frame = draw_polygon(frame, points)
 
         if frame is None:
@@ -214,7 +218,7 @@ def main(source):
 
 
         
-       
+    
         t_inicial= time.time()
         
         #
@@ -240,8 +244,29 @@ def main(source):
                 thickness=1,
                 lineType=cv2.LINE_AA,
             )
-        
-        cv2.imshow(winname="ESC pra Sair", mat=frame)
+        # Get the screen resolution
+        screen_res = (1440, 900)  # Replace with your screen resolution
+
+        # Calculate the scaling factor
+        scale_factor = min(screen_res[0] / frame.shape[1], screen_res[1] / frame.shape[0])
+
+        # Calculate the new size for the frame
+        new_size = (int(frame.shape[1] * scale_factor), int(frame.shape[0] * scale_factor))
+
+        # Create a blank black frame of the new size
+        blank_frame = np.zeros((screen_res[1], screen_res[0], 3), dtype=np.uint8)
+
+        # Resize the frame to the new size
+        frame = cv2.resize(frame, new_size, interpolation=cv2.INTER_LINEAR)
+
+        # Calculate the top-left corner coordinates for placing the frame on the blank frame
+        top = int((screen_res[1] - new_size[1]) / 2)
+        left = int((screen_res[0] - new_size[0]) / 2)
+
+        # Place the frame on the blank frame
+        blank_frame[top:top + new_size[1], left:left + new_size[0]] = frame
+
+        cv2.imshow(winname="ESC pra Sair", mat=blank_frame)
         
         key = cv2.waitKey(1)
         if key == 27:
@@ -251,6 +276,5 @@ def main(source):
     cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    video = 0
-
-    main(video)
+    video = "data/video.avi"
+    main(0)
