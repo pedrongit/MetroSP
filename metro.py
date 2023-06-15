@@ -5,24 +5,23 @@ import numpy as np
 from openvino.runtime import Core
 import serial
 
-arduino = serial.Serial('COM4', 9600) 
+#arduino = serial.Serial('COM4', 9600) 
 
 #arduino.write(b'1')
 #PRECISAO
 #precisao = "FP16"
-precisao = "FP16-INT8"
-#precisao = "FP32
+#precisao = 'FP16-INT8'
+precisao = 'FP32'
 
 #MODELO
-#modelo = "person-detection-0200"
-#modelo = "person-detection-0201"
-#modelo = "person-detection-0202"
-#modelo = "person-detection-0203"
-#modelo = "person-detection-retail-0013"
+#modelo = 'person-detection-0200'
+#modelo = 'person-detection-0201'
+#modelo = 'person-detection-0202'
+modelo = 'person-detection-0202'
+#modelo = 'person-detection-retail-0013'
 
-
-model_path = f"models/person-detection-retail-0013/FP16-INT8/person-detection-retail-0013.xml"           
-model_weights_path = f"models/person-detection-retail-0013/FP16-INT8/person-detection-retail-0013.bin"
+model_path = f"models/{modelo}/{precisao}/{modelo}.xml"#"models/person-detection-0203/FP32/person-detection-0203.xml"
+model_weights_path = f"models/{modelo}/{precisao}/{modelo}.bin"#"models/person-detection-0203/FP32/person-detection-0203.bin"
 
 print("Model XML path:", model_path)
 print("Model BIN path:", model_weights_path)
@@ -152,10 +151,10 @@ def draw_zone(frame, points, boxes, opacidade=0.5):
     # Choose the color based on the number of centroids inside the zone
     if centroids_inside >= 2:
         color = (0, 0, 255)
-        arduino.write(b'1')
+        #arduino.write(b'1')
         print('Status: porta TRANCADA')
     else:
-        arduino.write(b'0')
+        #arduino.write(b'0')
         print('Status: porta ABERTA') 
 
     thickness = 2  # Thickness of the polygon border
@@ -276,5 +275,5 @@ def main(source):
     cv2.destroyAllWindows()
 
 if __name__ == "__main__":
-    video = "data/video.avi"
-    main(0)
+    video = "data/pedestres.mp4"
+    main(video)
