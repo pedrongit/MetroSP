@@ -47,7 +47,7 @@ The Python code uses the OpenVINO library to perform person detection in a video
 2. Run the Python script to start video processing and turnstile control:
    ```bash
    python main.py
-3.The script will open a video window where the person detection and turnstile status will be displayed.
+3. The script will open a video window where the person detection and turnstile status will be displayed.
 
 Notes
 Adjust the video source path in the Python script if necessary.
